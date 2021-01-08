@@ -4,7 +4,9 @@ chardet==4.0.0
 click==7.1.2
 colorama==0.4.3
 cycler==0.10.0
+Cython==0.29.14
 Flask==1.1.2
+gensim==3.8.3
 gunicorn==20.0.4
 idna==2.10
 isort==4.3.21
@@ -30,6 +32,7 @@ scipy==1.6.0
 seaborn==0.11.1
 six==1.15.0
 sklearn==0.0
+smart-open==4.1.0
 threadpoolctl==2.1.0
 urllib3==1.26.2
 Werkzeug==1.0.1
