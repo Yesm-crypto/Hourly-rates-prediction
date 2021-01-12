@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<body>
+<title>Download</title>
+
+<div class="download">
+    <u><h1>Hourly Rates Prediction</h1></u>
+    <h2>"Predicted Rates" and "Hourly rates with Margin" are added to your given dataset.</h2>
+</div>
+<div class="tab">
+    <table >
+    {{sample_file|safe}}
+    </table>
+</div>
+    <br>
+    <h2 >This is just the sample of predictions. You can also download the updated file with predictions!<a href={{url_for('download')}} target="blank" > <button id="sub">  Download File </button></a></h2>
+    
+
+</body>
+</html>
+
+<style>
+body, html {
+    background-color: darkcyan;
+    text-align: center;
+}
+
+.download {
+
+    text-align: center;
+}
+#sub {
+            width: 250px;
+            height: 43px;
+            text-align: center;
+            border-radius: 14px;
+            font-size: 18px;
+        }
+        
+        #sub:hover {
+            background-color: darkcyan;
+        }
+
+    .tab {
+        background-color: rgb(253, 225, 97);
+        text-align: center;
+        align-content: center;
+    }
+    #com {
+        color: rgb(253, 225, 0);
+        text-align: center;
+    }
+</style>

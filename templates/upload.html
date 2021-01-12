@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<title> Hourly Rate Prediction </title>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+    <body>
+    <div class="first">
+        <u><h1>Hourly Rates Prediction</h1></u>
+        <strong><h3>Please upload the csv or excel(.XLSX) file.</h3></strong>
+        <h3>The file you are uploading should look like the following sample table.</h3>
+        <h3>Column headings and data types should be same.</h3>
+        <h4>(The first three rows of this sample table shows the data type of the content.)</h4>
+    </div>
+      {{errors|safe}}
+        <div >
+          {{sample_file|safe}}
+        </div>
+        <h3>Please upload only after confirming!</h3>
+        <br>
+        <div>
+        <form action="{{url_for('submit')}}" method="POST" enctype="multipart/form-data">
+          <h3>Also select the Margin for hourly rates.</h3>
+          <select name="Margin" id="third" required="required">
+            <option value="40">40%</option>
+            <option value="50">50%</option>
+            <option value="60">60%</option>
+            <option value="70">70%</option>
+            <option value="80">80%</option>
+          </select>
+          <br>
+          <br>
+        <input id="first" type="file" accept=".csv, .xlsx" name="file" />
+        <br>
+        <br>
+        <button id="sub" type="submit"> UPLOAD </button>
+        </form>
+        
+        </div>
+  
+
+        <style>
+          body {
+              background-color:rgb(253, 225, 97);
+              text-align: center;
+              padding: 0px;
+          }
+
+          .first{
+              padding: 0.1%;
+          }
+
+          .err {
+            color: blue;
+          }
+          .dataframe {
+            margin-left: auto;
+            margin-right: auto;
+          }
+
+         
+          
+          #sub {
+              width: 250px;
+              height: 43px;
+              text-align: center;
+              border-radius: 14px;
+              font-size: 18px;
+          }
+          
+          #sub:hover {
+              background-color: darkcyan;
+          }
+          
+        #first {
+            border-radius: 14px;
+            height: 25px;
+            font-size: 20px;
+            text-align: center;
+        }
+          #third {
+            border-radius: 14px;
+            height: 25px;
+            font-size: 20px;
+            text-align: center;
+        }
+          
+      </style>
+  </body>
+</html>
