@@ -5,12 +5,15 @@ click==7.1.2
 colorama==0.4.3
 cycler==0.10.0
 Cython==0.29.14
+et-xmlfile==1.0.1
 Flask==1.1.2
 gensim==3.8.3
+geographiclib==1.50
 gunicorn==20.0.4
 idna==2.10
 isort==4.3.21
 itsdangerous==1.1.0
+jdcal==1.4.1
 Jinja2==2.11.2
 joblib==1.0.0
 jsonify==0.5
@@ -20,6 +23,7 @@ MarkupSafe==1.1.1
 matplotlib==3.3.3
 mccabe==0.6.1
 numpy==1.19.5
+openpyxl==3.0.5
 pandas==1.2.0
 Pillow==8.1.0
 pylint==2.4.4
@@ -38,3 +42,4 @@ urllib3==1.26.2
 Werkzeug==1.0.1
 wincertstore==0.2
 wrapt==1.11.2
+xlrd==2.0.1
