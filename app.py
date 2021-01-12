@@ -236,6 +236,7 @@ def predictions():
 
 @app.route("/download-file/")
 def download():
+    global filename
     return send_file(filename, attachment_filename=filename, as_attachment=True)
 
 # Preprocessing
