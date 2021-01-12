@@ -163,10 +163,10 @@ def submit():
             show_df = pd.concat((df,pred_df),axis=1)
             # Returning the dataframe to the user
             if file.filename.split(".")[-1]=="csv":
-                filename="rhpreds.csv"
+                filename="/rhpreds.csv"
                 show_df.to_csv(filename,index=False)
             elif file.filename.split(".")[-1]=="xlsx":
-                filename="rhpreds.xlsx"
+                filename="/rhpreds.xlsx"
                 show_df.to_excel(filename,index=False)
             html=show_df.head(10).to_html()
             # df = pd.ExcelFile()
@@ -234,7 +234,7 @@ def predictions():
     else:
         return render_template('predict.html')
 
-@app.route("/download-file/")
+@app.route("/download-file")
 def download():
     global filename
     return send_file(filename, attachment_filename=filename, as_attachment=True)
