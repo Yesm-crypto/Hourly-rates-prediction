@@ -1,0 +1,150 @@
+new york
+ny
+san francisco
+ca
+honolulu
+hi
+anchorage
+ak
+brooklyn
+washington
+dc
+santa rosa
+charleston
+sc
+bellevue
+wa
+seattle
+berkeley
+jersey city
+nj
+oakland
+boston
+ma
+hartford
+ct
+albany
+philadelphia
+pa
+irvine
+long beach
+los angeles
+chicago
+il
+boulder
+co
+san jose
+burlington
+vt
+pittsburgh
+miami
+fl
+santa barbara
+sacramento
+portland
+me
+west palm beach
+everett
+tacoma
+or
+baltimore
+md
+new orleans
+la
+charlotte
+nc
+minneapolis
+mn
+eugene
+san diego
+bellingham
+atlanta
+ga
+denver
+saint paul
+birmingham
+al
+asheville
+fort myers
+indianapolis
+in
+jacksonville
+buffalo
+olympia
+saint petersburg
+austin
+tx
+rochester
+orlando
+peoria
+cleveland
+oh
+raleigh
+arlington
+saint louis
+mo
+milwaukee
+wi
+nashville
+tn
+tampa
+virginia beach
+va
+syracuse
+tallahassee
+bakersfield
+ann arbor
+mi
+las vegas
+nv
+columbus
+spokane
+memphis
+columbia
+salem
+fort wayne
+dayton
+kansas city
+fort worth
+fayetteville
+ar
+richmond
+greensboro
+dallas
+albuquerque
+nm
+phoenix
+az
+gainesville
+grand rapids
+tucson
+madison
+chattanooga
+fresno
+wichita
+ks
+salt lake city
+ut
+detroit
+tulsa
+ok
+cincinnati
+lubbock
+des moines
+ia
+houston
+oklahoma city
+knoxville
+springfield
+vancouver
+toledo
+little rock
+louisville
+ky
+reno
+huntsville
+lexington
+boise
+id
+el paso
+san antonio

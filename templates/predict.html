@@ -10,7 +10,7 @@
 <body>
 
     <div style="color:blue">
-        <form action="{{ url_for('predict')}}" method="post">
+        <form action="{{ url_for('predictions')}}" method="post">
             <h2>Hourly Rates Prediction</h2>
             <h3>Class</h3>
             <input id="first" name="Class" type="text">
@@ -38,6 +38,7 @@
                     <option value="70">70%</option>
                     <option value="80">80%</option>
             </select>
+            <h3>Prediction will be shown at the bottom of this page!</h3>
             <br><br><button id="sub" type="submit ">Calculate Hourly Rate</button>
             <br>
 

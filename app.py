@@ -5,13 +5,25 @@ import pickle
 import numpy as np
 import pandas as pd
 import sklearn
+from scipy import spatial
 import re
+import json
 from string import punctuation
 
 app = Flask(__name__)
-model = pickle.load(open('random_forest_regression_model.pkl', 'rb'))
-w2v_model = pickle.load(open('word2vec_model.pkl', 'rb'))
+# Loading different models
+model = pickle.load(open('./models/random_forest_regression_model.pkl', 'rb'))
+w2v_model = pickle.load(open('./models/word2vec_model.pkl', 'rb'))
+citycheck_model = pickle.load(open('./models/citycheck_model.pkl', 'rb'))
+rolecheck_model = pickle.load(open('./models/rolescheck_model.pkl', 'rb'))
 
+# Setting number features of model and defining index2word sets of each w2v model
+num_features = 100
+index2word_set_w2v = set(w2v_model.wv.index2word)
+index2word_set_cities = set(citycheck_model.wv.index2word)
+index2word_set_roles = set(rolecheck_model.wv.index2word)
+
+# Different routes
 @app.route('/',methods=['GET'])
 def Home():
     return render_template('index.html')
@@ -54,7 +66,7 @@ def submit():
             
             # Checking the columns similarity
             columns = raw_df.columns
-            ideal_cols = ["class","role","campaign type","average salary per annum","city","cost of living"]
+            ideal_cols = ["class","role","campaign type","city"]
             similar_cols = True
             for index, item in enumerate(ideal_cols):
                 if ideal_cols[index]!=columns[index]:
@@ -69,15 +81,53 @@ def submit():
             #Dropping null values
             raw_df = raw_df.dropna()
             try:
-                # applying function to convert the rates into integers
-                raw_df["average salary per annum"] = raw_df["average salary per annum"].apply(conv_to_int)
-                # applying function to calculate hourly rates
-                raw_df["rph_feature"] = raw_df["average salary per annum"].apply(rate_calc)
                 # preprocessing the text data
                 raw_df["class"] = raw_df["class"].apply(preprocess)
                 raw_df["role"] = raw_df["role"].apply(preprocess)
                 raw_df["campaign type"] = raw_df["campaign type"].apply(preprocess)
                 raw_df["city"] = raw_df["city"].apply(preprocess)
+                
+                # figuring our average salaries of given cities
+                # loading json file
+                input_file_col = open("./files/cit_col.json")
+                input_file_avs = open("./files/cit_salary.json")
+                city_col_data = json.load(input_file_col)
+                avs_data = json.load(input_file_avs)
+
+                raw_roles = raw_df["role"]
+                raw_cities = raw_df["city"]
+                
+                # data for new columns 
+                # average salary column
+                avs_col = []
+                # cost of living column
+                col_col = []
+                
+                for role, city in zip(raw_roles, raw_cities):
+                    sim_dict_city = average_similarity_dict(city,mode="c")
+                    sim_dict_role = average_similarity_dict(role,mode="r")
+                    
+                    for key in sim_dict_city.keys():
+                        sim_city = key
+                        break
+                    for key in sim_dict_role.keys():
+                        sim_role = key
+                        break
+                    # appending the cost of living of obtained similar city
+                    col_col.append(city_col_data[sim_city])
+                    # Appending the average salary of obtained similar role
+                    target_data = avs_data[sim_city]
+                    avs_col.append(target_data[sim_role])
+
+                # Adding the average salary column in raw dataframe
+                raw_df["average salary per annum"] = avs_col
+                # Adding cost of living data in raw dataframe
+                raw_df["cost of living"] = col_col
+
+                # applying function to convert the rates into integers
+                raw_df["average salary per annum"] = raw_df["average salary per annum"].apply(conv_to_int)
+                # applying function to calculate hourly rates
+                raw_df["rph_feature"] = raw_df["average salary per annum"].apply(rate_calc)
 
                 types = raw_df["campaign type"].unique()
                 if len(types)>3:
@@ -130,6 +180,7 @@ def submit():
                         return 1
                     elif city in ch:
                         return 0
+                
                 # dummy variables for campaign types
                 raw_df["health care professional"] = raw_df["campaign type"].apply(dummy_hcp)
                 raw_df["integrated communications"] = raw_df["campaign type"].apply(dummy_ic)
@@ -153,6 +204,7 @@ def submit():
             predictions = model.predict(final_df)
             # Make a df out of predictions
             pred_df = pd.DataFrame({"Predicted Rates":predictions})
+            pred_df["Predicted Rates"] = pred_df["Predicted Rates"].apply(lambda x: round(x))
             # Function to calculate margin
             def with_margin(x):
                 wm = x + int((margin/100)*x)
@@ -163,10 +215,10 @@ def submit():
             show_df = pd.concat((df,pred_df),axis=1)
             # Returning the dataframe to the user
             if file.filename.split(".")[-1]=="csv":
-                filename="/rhpreds.csv"
+                filename="rhpreds.csv"
                 show_df.to_csv(filename,index=False)
             elif file.filename.split(".")[-1]=="xlsx":
-                filename="/rhpreds.xlsx"
+                filename="rhpreds.xlsx"
                 show_df.to_excel(filename,index=False)
             html=show_df.head(10).to_html()
             # df = pd.ExcelFile()
@@ -182,7 +234,6 @@ def submit():
 
 @app.route("/predictions", methods=['POST'])
 def predictions():
-    Fuel_Type_Diesel=0
     if request.method == 'POST':
         try:
             c = preprocess(request.form['Class'])
@@ -239,7 +290,7 @@ def download():
     global filename
     return send_file(filename, attachment_filename=filename, as_attachment=True)
 
-# Preprocessing
+# Preprocessing the contents
 def preprocess(content):
     content = content.replace(","," ").lower().replace("$","")
     text = re.sub(r'\[[0-9]*\]',' ',content)
@@ -258,14 +309,13 @@ def conv_to_int(x):
         t_n = x
     n = int(t_n)
     return n
+
 # Calculation of hourly rates from yearly rates
 def rate_calc(x):
     rate = int(int(x)/2080)
     return rate
 
 # Finding the average feature vector representing the whole sentence
-num_features = 100
-index2word_set = set(w2v_model.wv.index2word)
 def avg_feature_vector(sentence, model, num_features, index2word_set):
     words = sentence.split()
     feature_vec = np.zeros((num_features, ), dtype='float32')
@@ -281,11 +331,49 @@ def avg_feature_vector(sentence, model, num_features, index2word_set):
 # Finding the modulus of word vectors
 def modulus_of_wv(words):
     global w2v_model
-    global index2word_set
+    global index2word_set_w2v
     global num_features
-    wv = avg_feature_vector(words,w2v_model,num_features,index2word_set)
+    wv = avg_feature_vector(words,w2v_model,num_features,index2word_set_w2v)
     mod = np.linalg.norm(wv)
     return mod
+
+# Similariy dictionary
+def average_similarity_dict(given_role_city,mode):
+    """Return the average similarity of sentence and all the keywords in file"""
+    global index2word_set_cities
+    global index2word_set_roles
+    global rolecheck_model
+    global citycheck_model
+    # preprocessing of sentence and file
+    sentence = preprocess(given_role_city)
+    if mode=="c":
+        with open("./files/cities.txt","r") as city_file:
+            content = city_file.readlines()
+        model = citycheck_model
+        index2word_set = index2word_set_cities
+    elif mode=="r":
+        with open("./files/roles.txt","r") as roles_file:
+            content = roles_file.readlines()
+        model = rolecheck_model
+        index2word_set = index2word_set_roles
+    # print(content)
+    # Removing the newline characters
+    for index, value in enumerate(content):
+        val = value.rstrip()
+        content[index] = val
+        total_sim = 0
+        sim_dict = {}
+        for role in content:
+            s1_afv = avg_feature_vector(sentence, model=model, num_features=100, index2word_set=index2word_set)
+            s2_afv = avg_feature_vector(role, model=model, num_features=100, index2word_set=index2word_set)
+            sim = 1 - spatial.distance.cosine(s1_afv, s2_afv)
+    # print(total_sim)
+            sim_dict[role] = sim
+    # sorting the dictionary
+    new_dict = {}
+    for wi in sorted(sim_dict, key=sim_dict.get, reverse=True):
+        new_dict[wi] = sim_dict[wi]
+    return new_dict
 
 if __name__=="__main__":
     app.run(debug=True)

@@ -11,6 +11,7 @@
         <strong><h3>Please upload the csv or excel(.XLSX) file.</h3></strong>
         <h3>The file you are uploading should look like the following sample table.</h3>
         <h3>Column headings and data types should be same.</h3>
+        <h3>NOTE: For now, the model is just trained with the data of New York, Chicago and Los Angeles.<br> So, it will work with just those cities.</h3>
         <h4>(The first three rows of this sample table shows the data type of the content.)</h4>
     </div>
       {{errors|safe}}
@@ -21,8 +22,10 @@
         <br>
         <div>
         <form action="{{url_for('submit')}}" method="POST" enctype="multipart/form-data">
-          <h3>Also select the Margin for hourly rates.</h3>
+          <h3>Also select the Margin you want to keep for hourly rates.</h3>
           <select name="Margin" id="third" required="required">
+            <option value="20">20%</option>
+            <option value="30">30%</option>
             <option value="40">40%</option>
             <option value="50">50%</option>
             <option value="60">60%</option>
@@ -34,6 +37,9 @@
         <input id="first" type="file" accept=".csv, .xlsx" name="file" />
         <br>
         <br>
+        <h2>Please wait for few seconds after uploading the file.</h2>
+        <h3>Large file may consume more time for prediction as it has to go through preprocessing steps as well.</h3>
+
         <button id="sub" type="submit"> UPLOAD </button>
         </form>
         

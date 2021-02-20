@@ -1,0 +1,218 @@
+project coordinator
+account executive
+account supervisor
+group account supervisor
+account director
+vice president account director
+business unit director
+vice president group account director
+senior vice president group account director
+associate managing partner
+managing partner
+associate project manager
+project manager
+senior project manager
+associate director project manager can be vice president
+vice president director of project management
+vice president director client operations
+associate copywriterart director
+copywriterart director
+copyart supervisor
+junior designer
+designer
+animator motion graphics designer
+senior designer
+senior medical copywriter
+group copyart supervisor
+ vice president associate creative director
+vice president creative director
+head of art and design
+group creative director
+senior vice president group creative director
+executive creative director
+chief creative officer
+associate medical copy editor
+medical copy editor
+senior medical copy editor
+managing editor
+associate director of editorial
+associate mlr content manager
+mlr content manager i submisson specialist
+senior mlr content manager i senior submissions specialist
+associate director mlr
+director content management
+associate graphic designer  studio
+graphic designer  studio
+senior graphic designer  studio
+supervisor graphic services  studio
+director graphic services
+retoucher
+senior presentation specialist
+quality control specialist
+vice president director of creative services
+talent traffic manager
+senior talent traffic manager
+business afairs manager
+senior business affairs manager
+head of business affairs
+art buyer
+senior art buyer
+integrated producer
+senior integrated producer
+associate director integrated production
+executive integrated producer
+head of integrated production
+associate strategist
+account planner
+strategist
+senior strategist
+strategy director
+vice president strategy director
+vice president group strategy director
+senior vice president group strategy director
+head of strategy
+head of planning
+chief strategy officer
+associate ux designer i associate experience strategist
+ux designer i experience strategist
+senior ux designer i senior experience strategist
+vice president ux designer i vice president experience strategy
+vice president ux director i vice president experience strategy director
+senior vice president user experience i senior vice president experience strategy
+chief experience officer
+associate data scientist i associate data analyst
+data scientist i data analyst
+senior data scientist i senior data analyst
+associate director da
+vice president director da
+front end developer
+vice president director of creative technology
+digital director
+vice president director of digitalengagement strategy
+associate project manger
+vice president director of creative servicescan be svice president
+production coordinator
+production specialist
+production supervisor
+associate art buyer
+associate art producer
+art producer
+senior art producer
+associate medical strategist
+medical strategist
+senior medical strategist
+vice president director medical strategy
+senior vice president group director medical strategy
+group account director plugged in vice president group account director
+senior planner same as account planner
+creative directorcopywriter plugged in vice president creative director
+senior art director plugged in art director
+senior mlr content manager
+graphic designer assumption graphic design studio changed to animatormotion graphics designer
+associate managing parnter
+group account director
+senior planner
+creative directorcopywriter
+associate art director
+associate copywriter
+head of design
+senior art director
+animator
+graphic services supervisor
+senior vice president client services
+vice president client services
+creative director
+associate creative director
+art director
+senior copy writer
+copy writer
+senior ux designer
+senior vice president delivery  ops
+vice president delivery  ops
+director dm
+associate director dm
+proofreader
+vice president production
+director production
+studio manager
+studio digital designer
+studio print designer
+studio animator
+studio motion designer
+digital quality assurance
+print producer
+senior vice president strategy
+vice president strategy
+director strategy
+senior experience strategist
+experience strategist
+vice president consumer marketing intelligence
+analyst consumer marketing intelligence
+senior vice president analytics
+vice president advanced analytics
+director analytics
+marketing science lead
+data scientist
+senior analyst
+analyst
+senior vice president technology
+vice president technology
+director technology
+solution architect
+business analyst
+senior technical consultant
+director engineering
+software engineer
+campaign manager
+data engineer
+senior analytics engineer
+director enablement
+dev ops engineer
+quality assurance engineer
+executive director  executive vice president
+management director  senior vice president
+account director  vice president
+asst account executive
+senior account executive
+director broadcast services  senior vice president
+associative director art production
+talent manager  vice president
+traffictalent associative
+trafficnetwork clearance manager
+executive producer  vice president
+bus manager
+senior producer
+director broadcast prod  senior vice president
+creative director  executive vice president
+creative director  senior vice president
+copy supervisor
+associative creative director  vice president
+copywriter
+editorial director  vice president
+editor
+submissions coord
+client bus manager
+presentation design specialist
+production manager
+medical strategy director  vice president
+strategic planning director  senior vice president
+group analytics director  senior vice president
+director analytics  vice president
+group analytics director  vice president
+analytics manager
+group strat planning director  executive vice president
+strategic planning director
+health education director
+senior ux architect
+traffic associative
+group copy supervisor
+group art supervisor
+art supervisor
+developer
+senior editor
+associative director editorial
+operations supervisor
+business development coord
+strategic planning director  vice president
+user experience architect
+talent manager  vp
