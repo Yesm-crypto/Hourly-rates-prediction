@@ -1,5 +1,6 @@
 from flask import Flask, render_template, Response, request, send_file, redirect,url_for
 import flask_progress_bar.flask_progress_bar as FPB
+from flask_mail import Mail, Message
 from werkzeug.utils import secure_filename
 import jsonify
 import requests
@@ -11,8 +12,20 @@ from scipy import spatial
 import re
 import json
 from string import punctuation
+import threading
 
 app = Flask(__name__)
+
+# Configuring the mail server
+app.config['MAIL_SERVER']='smtp.gmail.com'
+app.config['MAIL_PORT'] = 465
+app.config['MAIL_USERNAME'] = 'hourlyratesprediction@gmail.com'
+app.config['MAIL_PASSWORD'] = 'thisishourlyratesprediction'
+app.config['MAIL_USE_TLS'] = False
+app.config['MAIL_USE_SSL'] = True
+app_token="ijklmnop7654890"
+mail = Mail(app)
+
 # Loading different models
 model = pickle.load(open('./models/random_forest_regression_model.pkl', 'rb'))
 w2v_model = pickle.load(open('./models/word2vec_model.pkl', 'rb'))
@@ -50,7 +63,7 @@ def upload():
 
 
 
-def process_file():
+def process_file(email):
     global errors
     global html
     global filename
@@ -69,14 +82,15 @@ def process_file():
             df = pd.read_excel(file_path)
             raw_df = df.copy()
         # print(raw_df.columns)
-        yield [5,100]
+        # yield [5,100]
     except Exception as e:
         errors = f"""<h1 class="err"> Something is wrong with the file! <br> Please confirm whether the above criterias are fulfilled or not! </h1> <h4> Error: {e} </h4>"""
-        yield [100,100]
+        # yield [100,100]
+        return
 
     # Checking the columns similarity
     columns = raw_df.columns
-    print(columns)
+    # print(columns)
     ideal_cols = ["class","role","campaign type","city"]
     similar_cols = True
     for index, item in enumerate(ideal_cols):
@@ -84,10 +98,12 @@ def process_file():
             similar_cols = False
     if not similar_cols:
         errors = """<h1 class="err">Column headings should be exactly same!<br>Take this sample table as reference.</h1>"""
-        yield [100,100]
-    # return Response(FPB.progress(process_file(raw_df)), mimetype='text/event-stream')
+        # yield [100,100]
+        return
+    print("Column Similarity Checked!")
+    
 
-    yield [10,100]
+    # yield [10,100]
     # preprocessing process begins
     try:
         #Dropping null values
@@ -98,7 +114,7 @@ def process_file():
             raw_df["role"] = raw_df["role"].apply(preprocess)
             raw_df["campaign type"] = raw_df["campaign type"].apply(preprocess)
             raw_df["city"] = raw_df["city"].apply(preprocess)
-            yield [15,100]
+            # yield [15,100]
             # figuring our average salaries of given cities
             # loading json file
             input_file_col = open("./files/cit_col.json")
@@ -108,13 +124,13 @@ def process_file():
 
             raw_roles = raw_df["role"]
             raw_cities = raw_df["city"]
-            yield [25,100]
+            # yield [25,100]
             # data for new columns 
             # average salary column
             avs_col = []
             # cost of living column
             col_col = []
-            yield [55,100]
+            # yield [55,100]
             for role, city in zip(raw_roles, raw_cities):
                 sim_dict_city = average_similarity_dict(city,mode="c")
                 sim_dict_role = average_similarity_dict(role,mode="r")
@@ -130,7 +146,8 @@ def process_file():
                 # Appending the average salary of obtained similar role
                 target_data = avs_data[sim_city]
                 avs_col.append(target_data[sim_role])
-            yield [75,100]
+            # yield [75,100]
+            print("Main part is completed!")
             # Adding the average salary column in raw dataframe
             raw_df["average salary per annum"] = avs_col
             # Adding cost of living data in raw dataframe
@@ -144,8 +161,9 @@ def process_file():
             types = raw_df["campaign type"].unique()
             if len(types)>3:
                 errors = f"""<h3>The model is trained on 3 campaign types(DTC,HCP and IC). <br>But in the uploaded file, there are {len(types)} campaign types. <br>  {', '.join(types).upper()} </h3>"""
-                yield [100,100]
-            yield [80,100]
+                # yield [100,100]
+                return
+            # yield [80,100]
             def dummy_hcp(types):
                 hcp=["health care professional","health care professionals","hcp"]
                 dtc=["direct to consumer","direct to consumers","dtc"]
@@ -200,10 +218,11 @@ def process_file():
             # converting class and roles into vectors
             raw_df["class"] = raw_df["class"].apply(modulus_of_wv)
             raw_df["role"] = raw_df["role"].apply(modulus_of_wv)
-            yield [85,100]
+            # yield [85,100]
         except Exception as e:
             errors = f"""<h1 class="err"> Something is wrong with the data types of elements! <br> Please take this sample table as reference! </h1> <h4> Error: {e} </h4>"""
-            yield [100,100]
+            # yield [100,100]
+            return
 
         # Making final df for prediction
         final_df = raw_df[["class","role","rph_feature",'health care professional', 'integrated communications',"new york",'los angeles','cost of living']]
@@ -220,19 +239,89 @@ def process_file():
         pred_df["Rates with Margin"] = pred_df["Predicted Rates"].apply(with_margin)
         # Concatenating the dataframes
         show_df = pd.concat((df,pred_df),axis=1)
-        yield [95,100]
+        # yield [95,100]
         # Returning the dataframe to the user
         if filename.split(".")[-1]=="csv":
-            filename="hrpreds.csv"
+            filename="predicted"+filename
             show_df.to_csv(filename,index=False)
         elif filename.split(".")[-1]=="xlsx":
-            filename="hrpreds.xlsx"
+            filename="predicted"+filename
             show_df.to_excel(filename,index=False)
         html=show_df.head(10).to_html()
-        yield [100,100]
+        # yield [100,100]
+        t2 = threading.Thread(target=send_mail,args=(email,))
+        t2.start()
+        print("Completed!")
     except Exception as e:
             errors = f"""<h1 class="err"> Something is wrong with the file! <br> Please take this sample table as reference! </h1> <h4> Error: {e} </h4>"""
-            yield [100,100]
+            # yield [100,100]
+            return
+
+def send_mail(email):
+    import smtplib, ssl
+    from email import encoders
+    from email.mime.base import MIMEBase
+    from email.mime.multipart import MIMEMultipart
+    from email.mime.text import MIMEText
+
+    smtp_server = "smtp.gmail.com"
+    port = 587  # For starttls
+    subject = "Hourly Rates Prediction!"
+    body = """The following attachment contains the predicted outcomes.
+            \nYou can download and see the results!
+            """
+    sender_email = "hourlyratesprediction@gmail.com"
+    password = "thisishourlyratesprediction"
+    receiver_email = email
+
+    # Create a multipart message and set headers
+    message = MIMEMultipart()
+    message["From"] = sender_email
+    message["To"] = receiver_email
+    message["Subject"] = subject
+    message["Bcc"] = receiver_email  # Recommended for mass emails
+
+    # Add body to email
+    message.attach(MIMEText(body, "plain"))
+
+    filepath = filename  # In same directory as script
+
+    # Open PDF file in binary mode
+    with open(filepath, "rb") as attachment:
+        # Add file as application/octet-stream
+        # Email client can usually download this automatically as attachment
+        part = MIMEBase("application", "octet-stream")
+        part.set_payload(attachment.read())
+    
+        # Encode file in ASCII characters to send by email    
+    encoders.encode_base64(part)
+
+    # Add header as key/value pair to attachment part
+    part.add_header(
+        "Content-Disposition",
+        f"attachment; filename= {filename}",
+    )
+
+    # Add attachment to message and convert message to string
+    message.attach(part)
+    text = message.as_string()
+
+    # Log in to server using secure context and send email
+    context = ssl.create_default_context()
+    with smtplib.SMTP(smtp_server, port) as server:
+        server.ehlo()  # Can be omitted
+        server.starttls(context=context)
+        server.ehlo()  # Can be omitted
+        server.login(sender_email, password)
+        server.sendmail(sender_email, receiver_email, text)
+
+    print(f"Mail sent to {email}!")
+    # global mail
+    # msg = Message('Predicted Hourly Rates', sender = 'hourlyratesprediction@gmail.com', recipients = [email])
+    # # msg.html = render_template('confirm.html', name=firstname, email=email) 
+    # msg.html = "This is just a test! Please ignore this!"
+    # mail.send(msg)
+    pass
 
 @app.route("/error")
 def error():
@@ -251,10 +340,10 @@ def successfull():
     else:
         return redirect(url_for('error'))    
 
-@app.route("/progress")
-def progress():
+# @app.route("/progress")
+# def progress():
 
-    return Response(FPB.progress(process_file()), mimetype='text/event-stream')
+#     return Response(FPB.progress(process_file()), mimetype='text/event-stream')
 
 @app.route("/submit", methods=['POST'])
 def submit():
@@ -264,11 +353,17 @@ def submit():
         global margin
         file = request.files["file"]
         margin = int(request.form["Margin"])
+        email = request.form["Email"]
+        # email = "ysafarinep@gmail.com"
         # print(margin)
         # print(uploaded_file.filename)
         filename = secure_filename(file.filename)
         saving_path = "./uploads/" + filename
         file.save(saving_path)
+        t1 = threading.Thread(target=process_file,args=(email,))
+        t1.start()
+        
+        
         return render_template("progress.html")
     else:
         return render_template("upload.html")
