@@ -1,4 +1,6 @@
-from flask import Flask, render_template, request, send_file
+from flask import Flask, render_template, Response, request, send_file, redirect,url_for
+import flask_progress_bar.flask_progress_bar as FPB
+from werkzeug.utils import secure_filename
 import jsonify
 import requests
 import pickle
@@ -23,6 +25,13 @@ index2word_set_w2v = set(w2v_model.wv.index2word)
 index2word_set_cities = set(citycheck_model.wv.index2word)
 index2word_set_roles = set(rolecheck_model.wv.index2word)
 
+# some global variables
+errors = False
+html = None
+raw_df = None
+filename = ""
+margin = 0
+
 # Different routes
 @app.route('/',methods=['GET'])
 def Home():
@@ -39,198 +48,231 @@ def upload():
     html = df.to_html()
     return render_template('upload.html',sample_file=html)
 
+
+
+def process_file():
+    global errors
+    global html
+    global filename
+    global raw_df
+    global  margin
+    file_path = "./uploads/" + filename
+    # print(file_path)
+    # Checking the extension of the file
+    try:
+        if filename.split(".")[-1]=="csv":
+            # print("This is a csv file")
+            df = pd.read_csv(file_path)
+            raw_df = df.copy()
+        elif filename.split(".")[-1]=="xlsx":
+            # print("This is an excel file")
+            df = pd.read_excel(file_path)
+            raw_df = df.copy()
+        # print(raw_df.columns)
+        yield [5,100]
+    except Exception as e:
+        errors = f"""<h1 class="err"> Something is wrong with the file! <br> Please confirm whether the above criterias are fulfilled or not! </h1> <h4> Error: {e} </h4>"""
+        yield [100,100]
+
+    # Checking the columns similarity
+    columns = raw_df.columns
+    print(columns)
+    ideal_cols = ["class","role","campaign type","city"]
+    similar_cols = True
+    for index, item in enumerate(ideal_cols):
+        if ideal_cols[index]!=columns[index]:
+            similar_cols = False
+    if not similar_cols:
+        errors = """<h1 class="err">Column headings should be exactly same!<br>Take this sample table as reference.</h1>"""
+        yield [100,100]
+    # return Response(FPB.progress(process_file(raw_df)), mimetype='text/event-stream')
+
+    yield [10,100]
+    # preprocessing process begins
+    try:
+        #Dropping null values
+        raw_df = raw_df.dropna()   
+        try:
+            # preprocessing the text data
+            raw_df["class"] = raw_df["class"].apply(preprocess)
+            raw_df["role"] = raw_df["role"].apply(preprocess)
+            raw_df["campaign type"] = raw_df["campaign type"].apply(preprocess)
+            raw_df["city"] = raw_df["city"].apply(preprocess)
+            yield [15,100]
+            # figuring our average salaries of given cities
+            # loading json file
+            input_file_col = open("./files/cit_col.json")
+            input_file_avs = open("./files/cit_salary.json")
+            city_col_data = json.load(input_file_col)
+            avs_data = json.load(input_file_avs)
+
+            raw_roles = raw_df["role"]
+            raw_cities = raw_df["city"]
+            yield [25,100]
+            # data for new columns 
+            # average salary column
+            avs_col = []
+            # cost of living column
+            col_col = []
+            yield [55,100]
+            for role, city in zip(raw_roles, raw_cities):
+                sim_dict_city = average_similarity_dict(city,mode="c")
+                sim_dict_role = average_similarity_dict(role,mode="r")
+                
+                for key in sim_dict_city.keys():
+                    sim_city = key
+                    break
+                for key in sim_dict_role.keys():
+                    sim_role = key
+                    break
+                # appending the cost of living of obtained similar city
+                col_col.append(city_col_data[sim_city])
+                # Appending the average salary of obtained similar role
+                target_data = avs_data[sim_city]
+                avs_col.append(target_data[sim_role])
+            yield [75,100]
+            # Adding the average salary column in raw dataframe
+            raw_df["average salary per annum"] = avs_col
+            # Adding cost of living data in raw dataframe
+            raw_df["cost of living"] = col_col
+
+            # applying function to convert the rates into integers
+            raw_df["average salary per annum"] = raw_df["average salary per annum"].apply(conv_to_int)
+            # applying function to calculate hourly rates
+            raw_df["rph_feature"] = raw_df["average salary per annum"].apply(rate_calc)
+
+            types = raw_df["campaign type"].unique()
+            if len(types)>3:
+                errors = f"""<h3>The model is trained on 3 campaign types(DTC,HCP and IC). <br>But in the uploaded file, there are {len(types)} campaign types. <br>  {', '.join(types).upper()} </h3>"""
+                yield [100,100]
+            yield [80,100]
+            def dummy_hcp(types):
+                hcp=["health care professional","health care professionals","hcp"]
+                dtc=["direct to consumer","direct to consumers","dtc"]
+                ic=["integrated communication","integrated communications","ic"]
+                if types in hcp:
+                    return 1
+                elif types in dtc:
+                    return 0
+                elif types in ic:
+                    return 0
+
+            def dummy_ic(types):
+                hcp=["health care professional","health care professionals","hcp"]
+                dtc=["direct to consumer","direct to consumers","dtc"]
+                ic=["integrated communication","integrated communications","ic"]
+                if types in hcp:
+                    return 0
+                elif types in dtc:
+                    return 0
+                elif types in ic:
+                    return 1
+                
+            def dummy_ny(city):
+                ny=["new york","New York","ny"]
+                la=["los angeles","la","los angles"]
+                ch=["chicago","Chicago","chi"]
+                if city in ny:
+                    return 1
+                elif city in la:
+                    return 0
+                elif city in ch:
+                    return 0
+
+            def dummy_la(city):
+                ny=["new york","New York","ny"]
+                la=["los angeles","la","los angles"]
+                ch=["chicago","Chicago","chi"]
+                if city in ny:
+                    return 0
+                elif city in la:
+                    return 1
+                elif city in ch:
+                    return 0
+            
+            # dummy variables for campaign types
+            raw_df["health care professional"] = raw_df["campaign type"].apply(dummy_hcp)
+            raw_df["integrated communications"] = raw_df["campaign type"].apply(dummy_ic)
+            # dummy variables for cities
+            raw_df["new york"] = raw_df["city"].apply(dummy_ny)
+            raw_df["los angeles"] = raw_df["city"].apply(dummy_la)
+
+            # converting class and roles into vectors
+            raw_df["class"] = raw_df["class"].apply(modulus_of_wv)
+            raw_df["role"] = raw_df["role"].apply(modulus_of_wv)
+            yield [85,100]
+        except Exception as e:
+            errors = f"""<h1 class="err"> Something is wrong with the data types of elements! <br> Please take this sample table as reference! </h1> <h4> Error: {e} </h4>"""
+            yield [100,100]
+
+        # Making final df for prediction
+        final_df = raw_df[["class","role","rph_feature",'health care professional', 'integrated communications',"new york",'los angeles','cost of living']]
+        # Let's have predictions
+        predictions = model.predict(final_df)
+        # Make a df out of predictions
+        pred_df = pd.DataFrame({"Predicted Rates":predictions})
+        pred_df["Predicted Rates"] = pred_df["Predicted Rates"].apply(lambda x: round(x))
+        # Function to calculate margin
+        def with_margin(x):
+            wm = x + int((margin/100)*x)
+            return wm
+        # Applying the function to calculate margin and creating a new column our of it
+        pred_df["Rates with Margin"] = pred_df["Predicted Rates"].apply(with_margin)
+        # Concatenating the dataframes
+        show_df = pd.concat((df,pred_df),axis=1)
+        yield [95,100]
+        # Returning the dataframe to the user
+        if filename.split(".")[-1]=="csv":
+            filename="hrpreds.csv"
+            show_df.to_csv(filename,index=False)
+        elif filename.split(".")[-1]=="xlsx":
+            filename="hrpreds.xlsx"
+            show_df.to_excel(filename,index=False)
+        html=show_df.head(10).to_html()
+        yield [100,100]
+    except Exception as e:
+            errors = f"""<h1 class="err"> Something is wrong with the file! <br> Please take this sample table as reference! </h1> <h4> Error: {e} </h4>"""
+            yield [100,100]
+
+@app.route("/error")
+def error():
+    global errors
+    sample_file = pd.ExcelFile("sample.xlsx")
+    df = pd.read_excel(sample_file,"sample")
+    sample_html = df.to_html()
+    return render_template("upload.html",errors=errors,sample_file=sample_html)
+
+@app.route("/successfull")
+def successfull():
+    global errors
+    global html
+    if not errors:
+        return render_template("download.html",sample_file=html)
+    else:
+        return redirect(url_for('error'))    
+
+@app.route("/progress")
+def progress():
+
+    return Response(FPB.progress(process_file()), mimetype='text/event-stream')
+
 @app.route("/submit", methods=['POST'])
 def submit():
-    try:
-        if request.method=="POST":
-            global filename
-            file = request.files["file"]
-            margin = int(request.form["Margin"])
-            # print(margin)
-            # print(uploaded_file.filename)
-            try:
-                if file.filename.split(".")[-1]=="csv":
-                    # print("This is a csv file")
-                    df = pd.read_csv(file)
-                    raw_df = df.copy()
-                elif file.filename.split(".")[-1]=="xlsx":
-                    # print("This is an excel file")
-                    df = pd.read_excel(file.read())
-                    raw_df = df.copy()
-            except Exception as e:
-                sample_file = pd.ExcelFile("sample.xlsx")
-                df = pd.read_excel(sample_file,"sample")
-                html = df.to_html()
-                errors = f"""<h1 class="err"> Something is wrong with the file! <br> Please confirm whether the above criterias are fulfilled or not! </h1> <h4> Error: {e} </h4>"""
-                return render_template("upload.html",errors=errors,sample_file=html)
-            
-            # Checking the columns similarity
-            columns = raw_df.columns
-            ideal_cols = ["class","role","campaign type","city"]
-            similar_cols = True
-            for index, item in enumerate(ideal_cols):
-                if ideal_cols[index]!=columns[index]:
-                    similar_cols = False
-            if not similar_cols:
-                sample_file = pd.ExcelFile("sample.xlsx")
-                df = pd.read_excel(sample_file,"sample")
-                html = df.to_html()
-                errors = """<h1 class="err">Column headings should be exactly same!<br>Take this sample table as reference.</h1>"""
-                return render_template("upload.html",errors=errors,sample_file=html)
-            
-            #Dropping null values
-            raw_df = raw_df.dropna()
-            try:
-                # preprocessing the text data
-                raw_df["class"] = raw_df["class"].apply(preprocess)
-                raw_df["role"] = raw_df["role"].apply(preprocess)
-                raw_df["campaign type"] = raw_df["campaign type"].apply(preprocess)
-                raw_df["city"] = raw_df["city"].apply(preprocess)
-                
-                # figuring our average salaries of given cities
-                # loading json file
-                input_file_col = open("./files/cit_col.json")
-                input_file_avs = open("./files/cit_salary.json")
-                city_col_data = json.load(input_file_col)
-                avs_data = json.load(input_file_avs)
+    if request.method=="POST":
+        global filename
+        global errors
+        global margin
+        file = request.files["file"]
+        margin = int(request.form["Margin"])
+        # print(margin)
+        # print(uploaded_file.filename)
+        filename = secure_filename(file.filename)
+        saving_path = "./uploads/" + filename
+        file.save(saving_path)
+        return render_template("progress.html")
+    else:
+        return render_template("upload.html")
 
-                raw_roles = raw_df["role"]
-                raw_cities = raw_df["city"]
-                
-                # data for new columns 
-                # average salary column
-                avs_col = []
-                # cost of living column
-                col_col = []
-                
-                for role, city in zip(raw_roles, raw_cities):
-                    sim_dict_city = average_similarity_dict(city,mode="c")
-                    sim_dict_role = average_similarity_dict(role,mode="r")
-                    
-                    for key in sim_dict_city.keys():
-                        sim_city = key
-                        break
-                    for key in sim_dict_role.keys():
-                        sim_role = key
-                        break
-                    # appending the cost of living of obtained similar city
-                    col_col.append(city_col_data[sim_city])
-                    # Appending the average salary of obtained similar role
-                    target_data = avs_data[sim_city]
-                    avs_col.append(target_data[sim_role])
-
-                # Adding the average salary column in raw dataframe
-                raw_df["average salary per annum"] = avs_col
-                # Adding cost of living data in raw dataframe
-                raw_df["cost of living"] = col_col
-
-                # applying function to convert the rates into integers
-                raw_df["average salary per annum"] = raw_df["average salary per annum"].apply(conv_to_int)
-                # applying function to calculate hourly rates
-                raw_df["rph_feature"] = raw_df["average salary per annum"].apply(rate_calc)
-
-                types = raw_df["campaign type"].unique()
-                if len(types)>3:
-                    sample_file = pd.ExcelFile("sample.xlsx")
-                    df = pd.read_excel(sample_file,"sample")
-                    html = df.to_html()
-                    errors = f"""<h3>The model is trained on 3 campaign types(DTC,HCP and IC). <br>But in the uploaded file, there are {len(types)} campaign types. <br>  {', '.join(types).upper()} </h3>"""
-                    return render_template("upload.html",errors=errors,sample_file=html)
-
-                def dummy_hcp(types):
-                    hcp=["health care professional","health care professionals","hcp"]
-                    dtc=["direct to consumer","direct to consumers","dtc"]
-                    ic=["integrated communication","integrated communications","ic"]
-                    if types in hcp:
-                        return 1
-                    elif types in dtc:
-                        return 0
-                    elif types in ic:
-                        return 0
-            
-                def dummy_ic(types):
-                    hcp=["health care professional","health care professionals","hcp"]
-                    dtc=["direct to consumer","direct to consumers","dtc"]
-                    ic=["integrated communication","integrated communications","ic"]
-                    if types in hcp:
-                        return 0
-                    elif types in dtc:
-                        return 0
-                    elif types in ic:
-                        return 1
-                    
-                def dummy_ny(city):
-                    ny=["new york","New York","ny"]
-                    la=["los angeles","la","los angles"]
-                    ch=["chicago","Chicago","chi"]
-                    if city in ny:
-                        return 1
-                    elif city in la:
-                        return 0
-                    elif city in ch:
-                        return 0
-            
-                def dummy_la(city):
-                    ny=["new york","New York","ny"]
-                    la=["los angeles","la","los angles"]
-                    ch=["chicago","Chicago","chi"]
-                    if city in ny:
-                        return 0
-                    elif city in la:
-                        return 1
-                    elif city in ch:
-                        return 0
-                
-                # dummy variables for campaign types
-                raw_df["health care professional"] = raw_df["campaign type"].apply(dummy_hcp)
-                raw_df["integrated communications"] = raw_df["campaign type"].apply(dummy_ic)
-                # dummy variables for cities
-                raw_df["new york"] = raw_df["city"].apply(dummy_ny)
-                raw_df["los angeles"] = raw_df["city"].apply(dummy_la)
-
-                # converting class and roles into vectors
-                raw_df["class"] = raw_df["class"].apply(modulus_of_wv)
-                raw_df["role"] = raw_df["role"].apply(modulus_of_wv)
-            except Exception as e:
-                sample_file = pd.ExcelFile("sample.xlsx")
-                df = pd.read_excel(sample_file,"sample")
-                html = df.to_html()
-                errors = f"""<h1 class="err"> Something is wrong with the data types of elements! <br> Please take this sample table as reference! </h1> <h4> Error: {e} </h4>"""
-                return render_template("upload.html",errors=errors,sample_file=html)
-
-            # Making final df for prediction
-            final_df = raw_df[["class","role","rph_feature",'health care professional', 'integrated communications',"new york",'los angeles','cost of living']]
-            # Let's have predictions
-            predictions = model.predict(final_df)
-            # Make a df out of predictions
-            pred_df = pd.DataFrame({"Predicted Rates":predictions})
-            pred_df["Predicted Rates"] = pred_df["Predicted Rates"].apply(lambda x: round(x))
-            # Function to calculate margin
-            def with_margin(x):
-                wm = x + int((margin/100)*x)
-                return wm
-            # Applying the function to calculate margin and creating a new column our of it
-            pred_df["Rates with Margin"] = pred_df["Predicted Rates"].apply(with_margin)
-            # Concatenating the dataframes
-            show_df = pd.concat((df,pred_df),axis=1)
-            # Returning the dataframe to the user
-            if file.filename.split(".")[-1]=="csv":
-                filename="rhpreds.csv"
-                show_df.to_csv(filename,index=False)
-            elif file.filename.split(".")[-1]=="xlsx":
-                filename="rhpreds.xlsx"
-                show_df.to_excel(filename,index=False)
-            html=show_df.head(10).to_html()
-            # df = pd.ExcelFile()
-            return render_template('download.html',sample_file=html)
-        else:
-            return render_template("index.html")
-    except Exception as e:
-            sample_file = pd.ExcelFile("sample.xlsx")
-            df = pd.read_excel(sample_file,"sample")
-            html = df.to_html()
-            errors = f"""<h1 class="err"> Something is wrong with the file! <br> Please take this sample table as reference! </h1> <h4> Error: {e} </h4>"""
-            return render_template("upload.html",errors=errors,sample_file=html)
 
 @app.route("/predictions", methods=['POST'])
 def predictions():
@@ -284,6 +326,8 @@ def predictions():
             return render_template('predict.html',Class=c.capitalize(),Role = r.capitalize(),City=City,average_salary=average_salary,COL=col,output_1 = output_1,output=output,Type=Campaign)
     else:
         return render_template('predict.html')
+
+
 
 @app.route("/download-file")
 def download():
