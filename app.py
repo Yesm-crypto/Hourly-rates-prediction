@@ -269,7 +269,7 @@ def submit():
         filename = secure_filename(file.filename)
         saving_path = "./uploads/" + filename
         file.save(saving_path)
-        return render_template("upload.html")
+        return render_template("progress.html")
     else:
         return render_template("upload.html")
 
