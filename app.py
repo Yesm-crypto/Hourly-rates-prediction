@@ -1,6 +1,4 @@
 from flask import Flask, render_template, Response, request, send_file, redirect,url_for
-import flask_progress_bar.flask_progress_bar as FPB
-from flask_mail import Mail, Message
 from werkzeug.utils import secure_filename
 import jsonify
 import requests
@@ -15,16 +13,6 @@ from string import punctuation
 import threading
 
 app = Flask(__name__)
-
-# Configuring the mail server
-app.config['MAIL_SERVER']='smtp.gmail.com'
-app.config['MAIL_PORT'] = 465
-app.config['MAIL_USERNAME'] = 'hourlyratesprediction@gmail.com'
-app.config['MAIL_PASSWORD'] = 'thisishourlyratesprediction'
-app.config['MAIL_USE_TLS'] = False
-app.config['MAIL_USE_SSL'] = True
-app_token="ijklmnop7654890"
-mail = Mail(app)
 
 # Loading different models
 model = pickle.load(open('./models/random_forest_regression_model.pkl', 'rb'))
