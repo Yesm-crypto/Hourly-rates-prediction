@@ -1,4 +1,5 @@
 from flask import Flask, render_template, Response, request, send_file, redirect,url_for
+import flask_progress_bar.flask_progress_bar as FPB
 from werkzeug.utils import secure_filename
 import jsonify
 import requests
@@ -29,8 +30,11 @@ index2word_set_roles = set(rolecheck_model.wv.index2word)
 # some global variables
 errors = False
 html = None
+df = None
+data_val = True
 raw_df = None
 filename = ""
+email = ""
 margin = 0
 
 # Different routes
@@ -51,166 +55,122 @@ def upload():
 
 
 
-def process_file(email):
+def process_file():
     global errors
     global html
     global filename
     global raw_df
+    global df
     global  margin
-    file_path = "./uploads/" + filename
-    # print(file_path)
-    # Checking the extension of the file
-    try:
-        if filename.split(".")[-1]=="csv":
-            # print("This is a csv file")
-            df = pd.read_csv(file_path)
-            raw_df = df.copy()
-        elif filename.split(".")[-1]=="xlsx":
-            # print("This is an excel file")
-            df = pd.read_excel(file_path)
-            raw_df = df.copy()
-        # print(raw_df.columns)
-        # yield [5,100]
-    except Exception as e:
-        errors = f"""<h1 class="err"> Something is wrong with the file! <br> Please confirm whether the above criterias are fulfilled or not! </h1> <h4> Error: {e} </h4>"""
-        # yield [100,100]
-        return
-
-    # Checking the columns similarity
-    columns = raw_df.columns
-    # print(columns)
-    ideal_cols = ["class","role","campaign type","city"]
-    similar_cols = True
-    for index, item in enumerate(ideal_cols):
-        if ideal_cols[index]!=columns[index]:
-            similar_cols = False
-    if not similar_cols:
-        errors = """<h1 class="err">Column headings should be exactly same!<br>Take this sample table as reference.</h1>"""
-        # yield [100,100]
-        return
-    print("Column Similarity Checked!")
-    
-
-    # yield [10,100]
+    global email
     # preprocessing process begins
     try:
-        #Dropping null values
-        raw_df = raw_df.dropna()   
-        try:
-            # preprocessing the text data
-            raw_df["class"] = raw_df["class"].apply(preprocess)
-            raw_df["role"] = raw_df["role"].apply(preprocess)
-            raw_df["campaign type"] = raw_df["campaign type"].apply(preprocess)
-            raw_df["city"] = raw_df["city"].apply(preprocess)
-            # yield [15,100]
-            # figuring our average salaries of given cities
-            # loading json file
-            input_file_col = open("./files/cit_col.json")
-            input_file_avs = open("./files/cit_salary.json")
-            city_col_data = json.load(input_file_col)
-            avs_data = json.load(input_file_avs)
+        # figuring our average salaries of given cities
+        # loading json file
+        input_file_col = open("./files/cit_col.json")
+        input_file_avs = open("./files/cit_salary.json")
+        city_col_data = json.load(input_file_col)
+        avs_data = json.load(input_file_avs)
 
-            raw_roles = raw_df["role"]
-            raw_cities = raw_df["city"]
-            # yield [25,100]
-            # data for new columns 
-            # average salary column
-            avs_col = []
-            # cost of living column
-            col_col = []
-            # yield [55,100]
-            for role, city in zip(raw_roles, raw_cities):
-                sim_dict_city = average_similarity_dict(city,mode="c")
-                sim_dict_role = average_similarity_dict(role,mode="r")
-                
-                for key in sim_dict_city.keys():
-                    sim_city = key
-                    break
-                for key in sim_dict_role.keys():
-                    sim_role = key
-                    break
-                # appending the cost of living of obtained similar city
-                col_col.append(city_col_data[sim_city])
-                # Appending the average salary of obtained similar role
-                target_data = avs_data[sim_city]
-                avs_col.append(target_data[sim_role])
-            # yield [75,100]
-            print("Main part is completed!")
-            # Adding the average salary column in raw dataframe
-            raw_df["average salary per annum"] = avs_col
-            # Adding cost of living data in raw dataframe
-            raw_df["cost of living"] = col_col
-
-            # applying function to convert the rates into integers
-            raw_df["average salary per annum"] = raw_df["average salary per annum"].apply(conv_to_int)
-            # applying function to calculate hourly rates
-            raw_df["rph_feature"] = raw_df["average salary per annum"].apply(rate_calc)
-
-            types = raw_df["campaign type"].unique()
-            if len(types)>3:
-                errors = f"""<h3>The model is trained on 3 campaign types(DTC,HCP and IC). <br>But in the uploaded file, there are {len(types)} campaign types. <br>  {', '.join(types).upper()} </h3>"""
-                # yield [100,100]
-                return
-            # yield [80,100]
-            def dummy_hcp(types):
-                hcp=["health care professional","health care professionals","hcp"]
-                dtc=["direct to consumer","direct to consumers","dtc"]
-                ic=["integrated communication","integrated communications","ic"]
-                if types in hcp:
-                    return 1
-                elif types in dtc:
-                    return 0
-                elif types in ic:
-                    return 0
-
-            def dummy_ic(types):
-                hcp=["health care professional","health care professionals","hcp"]
-                dtc=["direct to consumer","direct to consumers","dtc"]
-                ic=["integrated communication","integrated communications","ic"]
-                if types in hcp:
-                    return 0
-                elif types in dtc:
-                    return 0
-                elif types in ic:
-                    return 1
-                
-            def dummy_ny(city):
-                ny=["new york","New York","ny"]
-                la=["los angeles","la","los angles"]
-                ch=["chicago","Chicago","chi"]
-                if city in ny:
-                    return 1
-                elif city in la:
-                    return 0
-                elif city in ch:
-                    return 0
-
-            def dummy_la(city):
-                ny=["new york","New York","ny"]
-                la=["los angeles","la","los angles"]
-                ch=["chicago","Chicago","chi"]
-                if city in ny:
-                    return 0
-                elif city in la:
-                    return 1
-                elif city in ch:
-                    return 0
+        raw_roles = raw_df["role"]
+        raw_cities = raw_df["city"]
+        # yield [25,100]
+        # data for new columns 
+        # average salary column
+        avs_col = []
+        # cost of living column
+        col_col = []
+        # yield [55,100]
+        for role, city in zip(raw_roles, raw_cities):
+            sim_dict_city = average_similarity_dict(city,mode="c")
+            sim_dict_role = average_similarity_dict(role,mode="r")
             
-            # dummy variables for campaign types
-            raw_df["health care professional"] = raw_df["campaign type"].apply(dummy_hcp)
-            raw_df["integrated communications"] = raw_df["campaign type"].apply(dummy_ic)
-            # dummy variables for cities
-            raw_df["new york"] = raw_df["city"].apply(dummy_ny)
-            raw_df["los angeles"] = raw_df["city"].apply(dummy_la)
+            for key in sim_dict_city.keys():
+                sim_city = key
+                break
+            for key in sim_dict_role.keys():
+                sim_role = key
+                break
+            # appending the cost of living of obtained similar city
+            col_col.append(city_col_data[sim_city])
+            # Appending the average salary of obtained similar role
+            target_data = avs_data[sim_city]
+            avs_col.append(target_data[sim_role])
+        # yield [75,100]
+        print(f"{email}: Main part is completed!")
+        # Adding the average salary column in raw dataframe
+        raw_df["average salary per annum"] = avs_col
+        # Adding cost of living data in raw dataframe
+        raw_df["cost of living"] = col_col
 
-            # converting class and roles into vectors
-            raw_df["class"] = raw_df["class"].apply(modulus_of_wv)
-            raw_df["role"] = raw_df["role"].apply(modulus_of_wv)
-            # yield [85,100]
-        except Exception as e:
-            errors = f"""<h1 class="err"> Something is wrong with the data types of elements! <br> Please take this sample table as reference! </h1> <h4> Error: {e} </h4>"""
+        # applying function to convert the rates into integers
+        raw_df["average salary per annum"] = raw_df["average salary per annum"].apply(conv_to_int)
+        # applying function to calculate hourly rates
+        raw_df["rph_feature"] = raw_df["average salary per annum"].apply(rate_calc)
+
+        types = raw_df["campaign type"].unique()
+        if len(types)>3:
+            errors = f"""The model is trained on 3 campaign types(DTC,HCP and IC).\nBut in the uploaded file, there are {len(types)} campaign types.\n  {', '.join(types).upper()}"""
             # yield [100,100]
+            t2 = threading.Thread(target=send_mail)
+            t2.start()
+            print(f"{email}: Campaign types do not match!")
             return
+        # yield [80,100]
+        def dummy_hcp(types):
+            hcp=["health care professional","health care professionals","hcp"]
+            dtc=["direct to consumer","direct to consumers","dtc"]
+            ic=["integrated communication","integrated communications","ic"]
+            if types in hcp:
+                return 1
+            elif types in dtc:
+                return 0
+            elif types in ic:
+                return 0
+
+        def dummy_ic(types):
+            hcp=["health care professional","health care professionals","hcp"]
+            dtc=["direct to consumer","direct to consumers","dtc"]
+            ic=["integrated communication","integrated communications","ic"]
+            if types in hcp:
+                return 0
+            elif types in dtc:
+                return 0
+            elif types in ic:
+                return 1
+            
+        def dummy_ny(city):
+            ny=["new york","New York","ny"]
+            la=["los angeles","la","los angles"]
+            ch=["chicago","Chicago","chi"]
+            if city in ny:
+                return 1
+            elif city in la:
+                return 0
+            elif city in ch:
+                return 0
+
+        def dummy_la(city):
+            ny=["new york","New York","ny"]
+            la=["los angeles","la","los angles"]
+            ch=["chicago","Chicago","chi"]
+            if city in ny:
+                return 0
+            elif city in la:
+                return 1
+            elif city in ch:
+                return 0
+        
+        # dummy variables for campaign types
+        raw_df["health care professional"] = raw_df["campaign type"].apply(dummy_hcp)
+        raw_df["integrated communications"] = raw_df["campaign type"].apply(dummy_ic)
+        # dummy variables for cities
+        raw_df["new york"] = raw_df["city"].apply(dummy_ny)
+        raw_df["los angeles"] = raw_df["city"].apply(dummy_la)
+
+        # converting class and roles into vectors
+        raw_df["class"] = raw_df["class"].apply(modulus_of_wv)
+        raw_df["role"] = raw_df["role"].apply(modulus_of_wv)
 
         # Making final df for prediction
         final_df = raw_df[["class","role","rph_feature",'health care professional', 'integrated communications',"new york",'los angeles','cost of living']]
@@ -237,15 +197,19 @@ def process_file(email):
             show_df.to_excel(filename,index=False)
         html=show_df.head(10).to_html()
         # yield [100,100]
-        t2 = threading.Thread(target=send_mail,args=(email,))
+        t2 = threading.Thread(target=send_mail)
         t2.start()
-        print("Completed!")
+        print(f"Now sending email to {email}!")
     except Exception as e:
-            errors = f"""<h1 class="err"> Something is wrong with the file! <br> Please take this sample table as reference! </h1> <h4> Error: {e} </h4>"""
+            errors = f"""Something is wrong with the data types in your file! Note: All data should be in textual format.\nPlease take the sample table in the website as reference! \n hourlyratespred.herokuapp.com/upload"""
             # yield [100,100]
+            t2 = threading.Thread(target=send_mail)
+            t2.start()
+            print(f"{email}: Something went wrong while preprocessing!\n{e}")
             return
 
-def send_mail(email):
+def send_mail():
+    global errors
     import smtplib, ssl
     from email import encoders
     from email.mime.base import MIMEBase
@@ -255,9 +219,13 @@ def send_mail(email):
     smtp_server = "smtp.gmail.com"
     port = 587  # For starttls
     subject = "Hourly Rates Prediction!"
-    body = """The following attachment contains the predicted outcomes.
-            \nYou can download and see the results!
-            """
+    if errors:
+        body = f"""{errors}\nPlease check and upload it again!\n Thank you! \n Hourlyrates Prediction"""
+    else:
+        body = """The following attachment contains the predicted outcomes.
+                \nYou can download and see the results!
+                \n Thank you! \n Hourlyrates Prediction
+                """
     sender_email = "hourlyratesprediction@gmail.com"
     password = "thisishourlyratesprediction"
     receiver_email = email
@@ -274,24 +242,26 @@ def send_mail(email):
 
     filepath = filename  # In same directory as script
 
-    # Open PDF file in binary mode
-    with open(filepath, "rb") as attachment:
-        # Add file as application/octet-stream
-        # Email client can usually download this automatically as attachment
-        part = MIMEBase("application", "octet-stream")
-        part.set_payload(attachment.read())
+    if not errors:
+        # Open file in binary mode
+        with open(filepath, "rb") as attachment:
+            # Add file as application/octet-stream
+            # Email client can usually download this automatically as attachment
+            part = MIMEBase("application", "octet-stream")
+            part.set_payload(attachment.read())
+        
+            # Encode file in ASCII characters to send by email    
+        encoders.encode_base64(part)
+
+        # Add header as key/value pair to attachment part
+        part.add_header(
+            "Content-Disposition",
+            f"attachment; filename= {filename}",
+        )
+
+        # Add attachment to message and convert message to string
+        message.attach(part)
     
-        # Encode file in ASCII characters to send by email    
-    encoders.encode_base64(part)
-
-    # Add header as key/value pair to attachment part
-    part.add_header(
-        "Content-Disposition",
-        f"attachment; filename= {filename}",
-    )
-
-    # Add attachment to message and convert message to string
-    message.attach(part)
     text = message.as_string()
 
     # Log in to server using secure context and send email
@@ -302,13 +272,9 @@ def send_mail(email):
         server.ehlo()  # Can be omitted
         server.login(sender_email, password)
         server.sendmail(sender_email, receiver_email, text)
-
+    
     print(f"Mail sent to {email}!")
-    # global mail
-    # msg = Message('Predicted Hourly Rates', sender = 'hourlyratesprediction@gmail.com', recipients = [email])
-    # # msg.html = render_template('confirm.html', name=firstname, email=email) 
-    # msg.html = "This is just a test! Please ignore this!"
-    # mail.send(msg)
+    errors = False
     pass
 
 @app.route("/error")
@@ -324,14 +290,99 @@ def successfull():
     global errors
     global html
     if not errors:
-        return render_template("download.html",sample_file=html)
+        # creating and starting the thread to prerocess the file and prediction
+        t1 = threading.Thread(target=process_file)
+        t1.start()
+        return render_template("preprocess.html",receiver_email=email)
     else:
-        return redirect(url_for('error'))    
+        return redirect(url_for('error'))
 
-# @app.route("/progress")
-# def progress():
+def validate_file():
+    global filename
+    global raw_df
+    global df
+    global data_val
+    global errors
+    global email
+    file_path = "./uploads/" + filename
+    # print(file_path)
+    # Checking the extension of the file
+    try:
+        if filename.split(".")[-1]=="csv":
+            # print("This is a csv file")
+            df = pd.read_csv(file_path)
+            raw_df = df.copy()
+        elif filename.split(".")[-1]=="xlsx":
+            # print("This is an excel file")
+            df = pd.read_excel(file_path)
+            raw_df = df.copy()
+        # print(raw_df.columns)
+        print(f"{email}: File extension validated!")
+        yield [20,100]
+    except Exception as e:
+        errors = f"""<h1 class="err"> Something is wrong with the file! <br> Please confirm whether the above criterias are fulfilled or not! </h1> <h4> Error: {e} </h4>"""
+        print(f"{email}: Something wrong with file extension!")
+        yield [100,100]
 
-#     return Response(FPB.progress(process_file()), mimetype='text/event-stream')
+    # Checking the columns similarity
+    try:
+        columns = raw_df.columns
+        print(columns)
+        ideal_cols = ["class","role","campaign type","city"]
+        similar_cols = True
+        for index, item in enumerate(ideal_cols):
+            if ideal_cols[index]!=columns[index]:
+                similar_cols = False
+        if not similar_cols:
+            errors = """<h1 class="err">Column headings should be exactly same!<br>Take this sample table as reference.</h1>"""
+            print(f"{email}: Columns are not similar!")
+            yield [100,100]
+        else:
+            print(f"{email}: Columns similarity validated!")
+        yield[50,100]
+    except Exception as e:
+        errors = f"""<h1 class="err"> Something is wrong with the columns of given file! <br> Please confirm whether the above criterias are fulfilled or not! </h1> <h4> Error: {e} </h4>"""
+        yield [100,100]
+
+    # Checkind data types
+    try:
+        raw_df = raw_df.dropna()   
+        # preprocessing the text data
+        raw_df["class"] = raw_df["class"].apply(preprocess)
+        raw_df["role"] = raw_df["role"].apply(preprocess)
+        raw_df["campaign type"] = raw_df["campaign type"].apply(preprocess)
+        raw_df["city"] = raw_df["city"].apply(preprocess)
+        # validate whether all are texts or not
+        def val_dt(x):
+            global data_val
+            try:
+                a = int(x)
+                data_val = False
+                print("Number spotted!")
+                return x
+            except:
+                return x
+        # validate the data
+        raw_df["class"] = raw_df["class"].apply(val_dt)
+        raw_df["role"] = raw_df["role"].apply(val_dt)
+        raw_df["campaign type"] = raw_df["campaign type"].apply(val_dt)
+        raw_df["city"] = raw_df["city"].apply(val_dt)
+        print(data_val)
+        if not data_val:
+            print(f"{email}: Data types are not valid!")
+            raise Exception("All data should be in text format.")
+        elif data_val:
+            print(f"{email}: Data Types validated!")
+            yield [100,100]
+    except Exception as e:
+        errors = f"""<h1 class="err"> Something is wrong with data types in given file! <br> Please confirm whether the above criterias are fulfilled or not! </h1> <h4> Error: {e} </h4>"""
+        yield [100,100]
+    
+
+@app.route("/validate")
+def validate():
+    # It will validate the uploaded file
+    return Response(FPB.progress(validate_file()), mimetype='text/event-stream')
 
 @app.route("/submit", methods=['POST'])
 def submit():
@@ -339,20 +390,18 @@ def submit():
         global filename
         global errors
         global margin
+        global email
         file = request.files["file"]
         margin = int(request.form["Margin"])
         email = request.form["Email"]
-        # email = "ysafarinep@gmail.com"
         # print(margin)
-        # print(uploaded_file.filename)
+        # print(file.filename)
         filename = secure_filename(file.filename)
-        saving_path = "./uploads/" + filename
+        # saving the file
+        saving_path = "./uploads/"+filename
         file.save(saving_path)
-        t1 = threading.Thread(target=process_file,args=(email,))
-        t1.start()
-        
-        
-        return render_template("progress.html")
+        # returning the validating template
+        return render_template("validate.html")
     else:
         return render_template("upload.html")
 
@@ -425,7 +474,7 @@ def preprocess(content):
     text = re.sub(r'\d',' ',text)
     text = re.sub(r'\s+',' ',text)
     text = "".join([letter for letter in text if letter not in punctuation])
-    text = text.rstrip().lower()
+    text = text.strip().lower()
     return text
 
 # convert the rates to integers
